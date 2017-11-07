@@ -21,6 +21,7 @@
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
 pub mod a;
 pub mod aaaa;
+pub mod caa;
 pub mod mx;
 pub mod name;
 pub mod null;

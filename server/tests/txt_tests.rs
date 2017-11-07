@@ -52,7 +52,11 @@ _ldap._tcp.service SRV 1 2 3 short
 short 70 A      \
                             26.3.0.104
 venera  A       10.1.0.52
-      A       128.9.0.32",
+      A       128.9.0.32
+
+nocerts       CAA 0 issue \";\"
+certs         CAA 0 issuewild \"example.net\"
+",
     );
 
     let records = Parser::new().parse(lexer, Some(Name::from_labels(vec!["isi", "edu"])));
@@ -245,8 +249,8 @@ venera  A       10.1.0.52
 
     txt_records.sort();
 
-    println!("compare: {:?}", compare);
-    println!("txt_records: {:?}", txt_records);
+    println!("compare: {:#?}", compare);
+    println!("txt_records: {:#?}", txt_records);
 
     let compare = txt_records.iter().zip(compare);
 
@@ -297,5 +301,22 @@ venera  A       10.1.0.52
         );
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
+    }
+
+    // CAA
+    let caa_record: &Record = authority
+        .lookup(
+            &Name::parse("nocerts.isi.edu.", None).unwrap(),
+            RecordType::CAA,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .first()
+        .cloned()
+        .expect("nocerts not found");
+    if let RData::CAA(ref rdata) = *caa_record.rdata() {
+        assert!(!rdata.issuer_critical());
+        assert!(rdata.tag().is_issue());
+        assert!(rdata.value().is_issuer());
     }
 }
