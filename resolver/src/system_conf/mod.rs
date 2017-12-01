@@ -12,9 +12,7 @@
 //!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
 #![allow(missing_docs, unused_extern_crates)]
 
-/// resolv.conf parser
-// TODO: make crate only...
-mod resolv_conf_ast;
+mod resolv_conf;
 #[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
 mod windows;
 
@@ -27,13 +25,6 @@ use trust_dns_proto::rr::Name;
 
 use config::*;
 use self::resolv_conf_ast::*;
-
-pub(crate) mod resolv_conf {
-    #![allow(unused)]
-    // lalrpop from the build script generates the grammar to this file,
-    //  see build.rs for the resolver for details.
-    include!(concat!(env!("OUT_DIR"), "/system_conf/resolv_conf.rs"));
-}
 
 #[cfg(unix)]
 pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
@@ -49,23 +40,34 @@ pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, 
     let mut file = File::open(path)?;
     file.read_to_string(&mut data)?;
 
-    // TODO: what to do with these errors?
-    let mut errors = Vec::new();
-    let conf = resolv_conf::parse_config(&mut errors, &data).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::Other,
-            format!("Error parsing resolv.conf: {:?}", e),
-        )
+    let conf = resolv_conf::Config::parse(&data)
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Error parsing resolv.conf: {:?}", e))
     })?;
 
     Ok(into_resolver_config(conf))
 }
 
-pub fn into_resolver_config(config_opts: Vec<ConfigOption>) -> (ResolverConfig, ResolverOpts) {
-    let mut domain = Option::None::<Name>;
+pub fn into_resolver_config(parsed_config: resolv_conf::Config) -> (ResolverConfig, ResolverOpts) {
     let mut search = Option::None::<Vec<Name>>;
-    let mut nameservers = Vec::<NameServerConfig>::new();
     let mut options = Option::None::<ResolverOpts>;
+
+    let mut nameservers = Vec::<NameServerConfig>::with_capacity(parsed_config.nameservers.len());
+    for ip in &parsed_config.nameservers {
+        nameservers.push(NameServerConfig {
+            socket_addr: SocketAddr::new(ip.into(), 53),
+            protocol: Protocol::Udp,
+        });
+        nameservers.push(NameServerConfig {
+            socket_addr: SocketAddr::new(ip.into(), 53),
+            protocol: Protocol::Tcp,
+        });
+    }
+
+    // For now, resolv_conf does not separate domain from nameservers
+    let domain = Option::None::<Name>;
 
     for config_opt in config_opts {
         match config_opt {
@@ -183,24 +185,24 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_name() {
-    //     let mut errors = Vec::new();
-    //     assert_eq!(
-    //         resolv_conf::parse_name(&mut errors, ".").unwrap(),
-    //         Name::from_labels::<String>(vec![])
-    //     );
+    #[test]
+    fn test_name() {
+        let mut errors = Vec::new();
+        assert_eq!(
+            resolv_conf::parse_name(&mut errors, ".").unwrap(),
+            Name::from_labels::<String>(vec![])
+        );
 
-    //     assert_eq!(
-    //         resolv_conf::parse_name(&mut errors, "com.").unwrap(),
-    //         Name::from_labels(vec!["com"])
-    //     );
+        assert_eq!(
+            resolv_conf::parse_name(&mut errors, "com.").unwrap(),
+            Name::from_labels(vec!["com"])
+        );
 
-    //     assert_eq!(
-    //         resolv_conf::parse_name(&mut errors, "example.com.").unwrap(),
-    //         Name::from_labels(vec!["example", "com"])
-    //     );
-    // }
+        assert_eq!(
+            resolv_conf::parse_name(&mut errors, "example.com.").unwrap(),
+            Name::from_labels(vec!["example", "com"])
+        );
+    }
 
     #[test]
     fn test_config_line() {
@@ -213,46 +215,45 @@ mod tests {
             )))
         );
 
-        // FIXME: add these tests back, need a custom Lexer for comments...
-        // assert_eq!(
-        //     resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1; a comment")
-        //         .expect("failed"),
-        //     Some(ConfigOption::Basic(BasicOption::Nameserver(
-        //         IpAddr::from_str("127.0.0.1").unwrap(),
-        //     )))
-        // );
+        assert_eq!(
+            resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1; a comment")
+                .expect("failed"),
+            Some(ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("127.0.0.1").unwrap(),
+            )))
+        );
 
-        // assert_eq!(
-        //     resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1# a comment")
-        //         .expect("failed"),
-        //     Some(ConfigOption::Basic(BasicOption::Nameserver(
-        //         IpAddr::from_str("127.0.0.1").unwrap(),
-        //     )))
-        // );
+        assert_eq!(
+            resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1# a comment")
+                .expect("failed"),
+            Some(ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("127.0.0.1").unwrap(),
+            )))
+        );
 
-        // assert_eq!(
-        //     resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1 #a comment")
-        //         .expect("failed"),
-        //     Some(ConfigOption::Basic(BasicOption::Nameserver(
-        //         IpAddr::from_str("127.0.0.1").unwrap(),
-        //     )))
-        // );
+        assert_eq!(
+            resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1 #a comment")
+                .expect("failed"),
+            Some(ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("127.0.0.1").unwrap(),
+            )))
+        );
 
-        // assert_eq!(
-        //     resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1 # a comment")
-        //         .expect("failed"),
-        //     Some(ConfigOption::Basic(BasicOption::Nameserver(
-        //         IpAddr::from_str("127.0.0.1").unwrap(),
-        //     )))
-        // );
+        assert_eq!(
+            resolv_conf::parse_config_line(&mut errors, "nameserver 127.0.0.1 # a comment")
+                .expect("failed"),
+            Some(ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("127.0.0.1").unwrap(),
+            )))
+        );
 
-        // assert_eq!(
-        //     resolv_conf::parse_config_line(&mut errors, "options ndots:8 # a comment")
-        //         .expect("failed"),
-        //     Some(ConfigOption::Advanced(
-        //         vec![AdvancedOption::NumberOfDots(8)],
-        //     ))
-        // );
+        assert_eq!(
+            resolv_conf::parse_config_line(&mut errors, "options ndots:8 # a comment")
+                .expect("failed"),
+            Some(ConfigOption::Advanced(
+                vec![AdvancedOption::NumberOfDots(8)],
+            ))
+        );
 
         // only comment
         assert_eq!(

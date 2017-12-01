@@ -46,13 +46,10 @@ dnssec = []
 name = "trust_dns_resolver"
 path = "src/lib.rs"
 
-[build-dependencies]
-lalrpop = "^0.13.1"
-
 [dependencies]
+resolv-conf = { git = "https://github.com/tailhook/resolv-conf" }
 error-chain = "0.1.12"
 futures = "^0.1.17"
-lalrpop-util = "^0.13.1"
 log = "^0.3.5"
 lru-cache = "^0.1.1"
 regex = "0.2.1"
