@@ -390,21 +390,19 @@ enum BitMapState {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
-    encoder.emit(rdata.hash_algorithm().into())?;
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) {
+    encoder.emit(rdata.hash_algorithm().into());
     let mut flags: u8 = 0;
     if rdata.opt_out() {
         flags |= 0b0000_0001
     };
-    encoder.emit(flags)?;
-    encoder.emit_u16(rdata.iterations())?;
-    encoder.emit(rdata.salt().len() as u8)?;
-    encoder.emit_vec(rdata.salt())?;
-    encoder.emit(rdata.next_hashed_owner_name().len() as u8)?;
-    encoder.emit_vec(rdata.next_hashed_owner_name())?;
-    encode_bit_maps(encoder, rdata.type_bit_maps())?;
-
-    Ok(())
+    encoder.emit(flags);
+    encoder.emit_u16(rdata.iterations());
+    encoder.emit(rdata.salt().len() as u8);
+    encoder.emit_vec(rdata.salt());
+    encoder.emit(rdata.next_hashed_owner_name().len() as u8);
+    encoder.emit_vec(rdata.next_hashed_owner_name());
+    encode_bit_maps(encoder, rdata.type_bit_maps());
 }
 
 /// Encode the bit map
@@ -413,7 +411,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
 ///
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
-pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
+pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) {
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
     let mut type_bit_maps = type_bit_maps.to_vec();
     type_bit_maps.sort();
@@ -439,15 +437,13 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
 
     // output bitmaps
     for (window, bitmap) in hash {
-        encoder.emit(window)?;
+        encoder.emit(window);
         // the hashset should never be larger that 255 based on above logic.
-        encoder.emit(bitmap.len() as u8)?;
+        encoder.emit(bitmap.len() as u8);
         for bits in bitmap {
-            encoder.emit(bits)?;
+            encoder.emit(bits);
         }
     }
-
-    Ok(())
 }
 
 #[test]
@@ -470,7 +466,7 @@ pub fn test() {
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
+    emit(&mut encoder, &rdata);
     let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
@@ -520,7 +516,7 @@ pub fn test_dups() {
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
+    emit(&mut encoder, &rdata_with_dups);
     let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);

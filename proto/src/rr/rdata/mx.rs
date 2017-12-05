@@ -106,9 +106,8 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
-    encoder.emit_u16(mx.preference())?;
-    mx.exchange()
-        .emit_with_lowercase(encoder, is_canonical_names)?;
+    encoder.emit_u16(mx.preference());
+    mx.exchange().emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
 }
 

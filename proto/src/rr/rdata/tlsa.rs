@@ -360,12 +360,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
-    encoder.emit_u8(tlsa.cert_usage.into())?;
-    encoder.emit_u8(tlsa.selector.into())?;
-    encoder.emit_u8(tlsa.matching.into())?;
-    encoder.emit_vec(&tlsa.cert_data)?;
-    Ok(())
+pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) {
+    encoder.emit_u8(tlsa.cert_usage.into());
+    encoder.emit_u8(tlsa.selector.into());
+    encoder.emit_u8(tlsa.matching.into());
+    encoder.emit_vec(&tlsa.cert_data);
 }
 
 #[cfg(test)]
@@ -426,7 +425,7 @@ mod tests {
     fn test_encode_decode(rdata: TLSA) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit tlsa");
+        emit(&mut encoder, &rdata);
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);

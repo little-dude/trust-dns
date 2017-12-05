@@ -288,7 +288,7 @@ impl BinSerializable<Record> for Record {
         self.name_labels.emit(encoder)?;
         self.rr_type.emit(encoder)?;
         self.dns_class.emit(encoder)?;
-        encoder.emit_u32(self.ttl)?;
+        encoder.emit_u32(self.ttl);
 
         // gah... need to write rdata before we know the size of rdata...
         // TODO: should we skip the fixed size header and write the rdata first? then write the header?
@@ -296,22 +296,15 @@ impl BinSerializable<Record> for Record {
         {
             let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(
                 &mut tmp_buf,
-                encoder.offset() + 2, /*for u16 len*/
+                0,
                 EncodeMode::Normal,
             );
             self.rdata.emit(&mut tmp_encoder)?;
         }
 
         assert!(tmp_buf.len() <= u16::max_value() as usize);
-
-        encoder.emit_u16(tmp_buf.len() as u16)?;
-        encoder.reserve(tmp_buf.len());
-
-        tmp_buf.reverse();
-        while let Some(byte) = tmp_buf.pop() {
-            encoder.emit(byte)?;
-        }
-
+        encoder.emit_u16(tmp_buf.len() as u16);
+        encoder.emit_vec(tmp_buf.as_slice());
         Ok(())
     }
 }

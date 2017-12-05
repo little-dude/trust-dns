@@ -136,7 +136,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     encoder.set_canonical_names(true);
     rdata.next_domain_name().emit(encoder)?;
-    nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())?;
+    nsec3::encode_bit_maps(encoder, rdata.type_bit_maps());
     encoder.set_canonical_names(is_canonical_names);
 
     Ok(())

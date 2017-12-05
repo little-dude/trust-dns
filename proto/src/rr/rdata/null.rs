@@ -79,14 +79,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder, nil: &NULL) {
     if let Some(anything) = nil.anything() {
-        for b in anything.iter() {
-            encoder.emit(*b)?;
-        }
+        encoder.emit_vec(anything.as_slice());
     }
-
-    Ok(())
 }
 
 #[test]
@@ -95,10 +91,8 @@ pub fn test() {
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
+    emit(&mut encoder, &rdata);
     let bytes = encoder.into_bytes();
-
-    println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);

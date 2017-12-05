@@ -15,13 +15,14 @@
  */
 use std::collections::HashMap;
 use std::sync::Arc as Rc;
+use std::io::Cursor;
 
+use bytes::{BufMut, BigEndian};
 use error::{ProtoErrorKind, ProtoResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
-    offset: u32,
-    buffer: &'a mut Vec<u8>,
+    buffer: Cursor<&'a mut Vec<u8>>,
     // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
     //  than the callee of store_pointer which isn't obvious right now.
     name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
@@ -54,9 +55,10 @@ impl<'a> BinEncoder<'a> {
     ///
     /// * `offset` - index at which to start writing into the buffer
     pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
+        let mut cursor = Cursor::new(buf);
+        cursor.set_position(offset as u64);
         BinEncoder {
-            offset: offset,
-            buffer: buf,
+            buffer: cursor,
             name_pointers: HashMap::new(),
             mode: mode,
             canonical_names: false,
@@ -65,22 +67,22 @@ impl<'a> BinEncoder<'a> {
 
     /// Returns a reference to the internal buffer
     pub fn into_bytes(self) -> &'a Vec<u8> {
-        self.buffer
+        self.buffer.into_inner()
     }
 
     /// Returns the length of the buffer
     pub fn len(&self) -> usize {
-        self.buffer.len()
+        self.buffer.get_ref().len()
     }
 
     /// Returns `true` if the buffer is empty
     pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
+        self.buffer.get_ref().is_empty()
     }
 
     /// Returns the current offset into the buffer
     pub fn offset(&self) -> u32 {
-        self.offset
+        (self.buffer.position() & 0xffff_ffff) as u32
     }
 
     /// Returns the current Encoding mode
@@ -98,16 +100,9 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
-    /// Reserve specified length in the internal buffer
-    pub fn reserve(&mut self, extra: usize) {
-        self.buffer.reserve(extra);
-    }
-
     /// Emit one byte into the buffer
-    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        self.offset += 1;
-        self.buffer.push(b);
-        Ok(())
+    pub fn emit(&mut self, b: u8) {
+        self.emit_u8(b);
     }
 
     /// Stores a label pointer to an already written label
@@ -115,8 +110,9 @@ impl<'a> BinEncoder<'a> {
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
     pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
-        if self.offset < 0x3FFFu32 {
-            self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
+        if self.buffer.position() < 0x3FFFu32 as u64 {
+            // FIXME: this cast cast fail
+            self.name_pointers.insert(labels, self.buffer.position() as u16); // the next char will be at the len() location
         }
     }
 
@@ -142,82 +138,65 @@ impl<'a> BinEncoder<'a> {
         if char_bytes.len() > 255 {
             return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
         }
-
-        self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
-        self.emit(char_bytes.len() as u8)?;
-
-        // a separate writer isn't necessary for label since it's the same first byte that's being written
-
-        // TODO use append() once it stabalizes
-        for b in char_bytes {
-            self.emit(*b)?;
-        }
-
+        self.grow(char_bytes.len() + 1);
+        self.buffer.put_u8(char_bytes.len() as u8); // safe to cast to u8 since len <= 255
+        self.buffer.put_slice(char_bytes);
         Ok(())
     }
 
     /// Emit one byte into the buffer
-    pub fn emit_u8(&mut self, data: u8) -> ProtoResult<()> {
-        self.emit(data)
+    pub fn emit_u8(&mut self, data: u8) {
+        self.grow(1);
+        self.buffer.put_u8(data)
     }
 
     /// Writes a u16 in network byte order to the buffer
-    pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        self.buffer.reserve(2); // two bytes coming
-
-        let b1: u8 = (data >> 8 & 0xFF) as u8;
-        let b2: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-
-        Ok(())
+    pub fn emit_u16(&mut self, data: u16) {
+        self.grow(2);
+        self.buffer.put_u16::<BigEndian>(data)
     }
 
     /// Writes an i32 in network byte order to the buffer
-    pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
-        self.buffer.reserve(4); // four bytes coming...
-
-        let b1: u8 = (data >> 24 & 0xFF) as u8;
-        let b2: u8 = (data >> 16 & 0xFF) as u8;
-        let b3: u8 = (data >> 8 & 0xFF) as u8;
-        let b4: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-        self.emit(b3)?;
-        self.emit(b4)?;
-
-        Ok(())
+    pub fn emit_i32(&mut self, data: i32) {
+        self.grow(4);
+        self.buffer.put_i32::<BigEndian>(data)
     }
 
     /// Writes an u32 in network byte order to the buffer
-    pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        self.buffer.reserve(4); // four bytes coming...
-
-        let b1: u8 = (data >> 24 & 0xFF) as u8;
-        let b2: u8 = (data >> 16 & 0xFF) as u8;
-        let b3: u8 = (data >> 8 & 0xFF) as u8;
-        let b4: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-        self.emit(b3)?;
-        self.emit(b4)?;
-
-        Ok(())
+    pub fn emit_u32(&mut self, data: u32) {
+        self.grow(4);
+        self.buffer.put_u32::<BigEndian>(data)
     }
 
     /// Writes the byte slice to the stream
-    pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
-        self.buffer.reserve(data.len());
-
-        for i in data {
-            self.emit(*i)?;
-        }
-
-        Ok(())
+    pub fn emit_vec(&mut self, data: &[u8]) {
+        self.grow(data.len());
+        self.buffer.put_slice(data);
     }
+
+    /// Return the remaining capacity af the underlying buffer
+    fn remaining_capacity(&self) -> usize {
+        self.buffer.get_ref().capacity() - self.len()
+    }
+
+    /// Grow the underlying buffer's capacity by at least 512 bytes
+    fn reserve(&mut self, len: usize) {
+        if len < 512 {
+            self.buffer.get_mut().reserve(512)
+        } else {
+            self.buffer.get_mut().reserve(len)
+        }
+    }
+
+    /// Grow the underlying buffer's length by the specified amount
+    fn grow(&mut self, len: usize) {
+        if self.remaining_capacity() < len {
+            self.reserve(len)
+        }
+        let new_len = self.len() + len;
+        self.buffer.get_mut().resize(new_len, 0);
+    }
+
 }
 
 /// In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records

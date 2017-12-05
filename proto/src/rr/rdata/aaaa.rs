@@ -54,15 +54,14 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> ProtoResult<()> {
     let segments = address.segments();
-
-    encoder.emit_u16(segments[0])?;
-    encoder.emit_u16(segments[1])?;
-    encoder.emit_u16(segments[2])?;
-    encoder.emit_u16(segments[3])?;
-    encoder.emit_u16(segments[4])?;
-    encoder.emit_u16(segments[5])?;
-    encoder.emit_u16(segments[6])?;
-    encoder.emit_u16(segments[7])?;
+    encoder.emit_u16(segments[0]);
+    encoder.emit_u16(segments[1]);
+    encoder.emit_u16(segments[2]);
+    encoder.emit_u16(segments[3]);
+    encoder.emit_u16(segments[4]);
+    encoder.emit_u16(segments[5]);
+    encoder.emit_u16(segments[6]);
+    encoder.emit_u16(segments[7]);
     Ok(())
 }
 

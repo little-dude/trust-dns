@@ -245,11 +245,11 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
 
     soa.mname.emit_with_lowercase(encoder, is_canonical_names)?;
     soa.rname.emit_with_lowercase(encoder, is_canonical_names)?;
-    encoder.emit_u32(soa.serial)?;
-    encoder.emit_i32(soa.refresh)?;
-    encoder.emit_i32(soa.retry)?;
-    encoder.emit_i32(soa.expire)?;
-    encoder.emit_u32(soa.minimum)?;
+    encoder.emit_u32(soa.serial);
+    encoder.emit_i32(soa.refresh);
+    encoder.emit_i32(soa.retry);
+    encoder.emit_i32(soa.expire);
+    encoder.emit_u32(soa.minimum);
     Ok(())
 }
 

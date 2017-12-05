@@ -165,7 +165,7 @@ impl BinSerializable<Algorithm> for Algorithm {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit(u8::from(*self))
+        Ok(encoder.emit(u8::from(*self)))
     }
 }
 

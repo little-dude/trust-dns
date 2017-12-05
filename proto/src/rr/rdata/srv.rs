@@ -222,13 +222,10 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SRV> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
-
-    encoder.emit_u16(srv.priority())?;
-    encoder.emit_u16(srv.weight())?;
-    encoder.emit_u16(srv.port())?;
-    srv.target()
-        .emit_with_lowercase(encoder, is_canonical_names)?;
-    Ok(())
+    encoder.emit_u16(srv.priority());
+    encoder.emit_u16(srv.weight());
+    encoder.emit_u16(srv.port());
+    srv.target().emit_with_lowercase(encoder, is_canonical_names)
 }
 
 #[test]

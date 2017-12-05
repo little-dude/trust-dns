@@ -59,10 +59,10 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> ProtoResult<()> {
     let segments = address.octets();
 
-    encoder.emit(segments[0])?;
-    encoder.emit(segments[1])?;
-    encoder.emit(segments[2])?;
-    encoder.emit(segments[3])?;
+    encoder.emit(segments[0]);
+    encoder.emit(segments[1]);
+    encoder.emit(segments[2]);
+    encoder.emit(segments[3]);
     Ok(())
 }
 

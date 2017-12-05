@@ -519,17 +519,17 @@ impl RData {
             }
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
-            RData::NULL(ref null) => rdata::null::emit(encoder, null),
-            RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
+            RData::NULL(ref null) => Ok(rdata::null::emit(encoder, null)),
+            RData::OPT(ref opt) => Ok(rdata::opt::emit(encoder, opt)),
             // to_lowercase for rfc4034 and rfc6840
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
             RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
-            RData::TLSA(ref tlsa) => rdata::tlsa::emit(encoder, tlsa),
+            RData::TLSA(ref tlsa) => Ok(rdata::tlsa::emit(encoder, tlsa)),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.emit(encoder),
-            RData::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
+            RData::Unknown { ref rdata, .. } => Ok(rdata::null::emit(encoder, rdata)),
         }
     }
 

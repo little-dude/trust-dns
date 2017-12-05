@@ -507,10 +507,10 @@ impl DNSSECRData {
             DNSSECRData::KEY(ref key) => key::emit(encoder, key),
             DNSSECRData::DNSKEY(ref dnskey) => dnskey::emit(encoder, dnskey),
             DNSSECRData::NSEC(ref nsec) => nsec::emit(encoder, nsec),
-            DNSSECRData::NSEC3(ref nsec3) => nsec3::emit(encoder, nsec3),
-            DNSSECRData::NSEC3PARAM(ref nsec3param) => nsec3param::emit(encoder, nsec3param),
+            DNSSECRData::NSEC3(ref nsec3) => Ok(nsec3::emit(encoder, nsec3)),
+            DNSSECRData::NSEC3PARAM(ref nsec3param) => Ok(nsec3param::emit(encoder, nsec3param)),
             DNSSECRData::SIG(ref sig) => sig::emit(encoder, sig),
-            DNSSECRData::Unknown { ref rdata, .. } => null::emit(encoder, rdata),
+            DNSSECRData::Unknown { ref rdata, .. } => Ok(null::emit(encoder, rdata)),
         }
     }
 

@@ -155,7 +155,7 @@ pub fn rrset_tbs(
             assert!(dns_class.emit(&mut encoder).is_ok());
             //
             //                OrigTTL is the value from the RRSIG Original TTL field
-            assert!(encoder.emit_u32(original_ttl).is_ok());
+            encoder.emit_u32(original_ttl);
             //
             //                RDATA length
             // TODO: add support to the encoder to set a marker to go back and write the length
@@ -165,10 +165,10 @@ pub fn rrset_tbs(
                 rdata_encoder.set_canonical_names(true);
                 assert!(record.rdata().emit(&mut rdata_encoder).is_ok());
             }
-            assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
+            encoder.emit_u16(rdata_buf.len() as u16);
             //
             //                All names in the RDATA field are in canonical form (set above)
-            assert!(encoder.emit_vec(&rdata_buf).is_ok());
+            encoder.emit_vec(&rdata_buf);
         }
     }
 

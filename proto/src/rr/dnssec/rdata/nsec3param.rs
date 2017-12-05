@@ -175,18 +175,16 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
-    encoder.emit(rdata.hash_algorithm().into())?;
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) {
+    encoder.emit(rdata.hash_algorithm().into());
     let mut flags: u8 = 0;
     if rdata.opt_out() {
         flags |= 0b0000_0001
     };
-    encoder.emit(flags)?;
-    encoder.emit_u16(rdata.iterations())?;
-    encoder.emit(rdata.salt().len() as u8)?;
-    encoder.emit_vec(rdata.salt())?;
-
-    Ok(())
+    encoder.emit(flags);
+    encoder.emit_u16(rdata.iterations());
+    encoder.emit(rdata.salt().len() as u8);
+    encoder.emit_vec(rdata.salt());
 }
 
 #[test]
@@ -195,7 +193,7 @@ pub fn test() {
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
+    emit(&mut encoder, &rdata);
     let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);

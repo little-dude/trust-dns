@@ -502,14 +502,14 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
 
     sig.type_covered().emit(encoder)?;
     sig.algorithm().emit(encoder)?;
-    encoder.emit(sig.num_labels())?;
-    encoder.emit_u32(sig.original_ttl())?;
-    encoder.emit_u32(sig.sig_expiration())?;
-    encoder.emit_u32(sig.sig_inception())?;
-    encoder.emit_u16(sig.key_tag())?;
+    encoder.emit(sig.num_labels());
+    encoder.emit_u32(sig.original_ttl());
+    encoder.emit_u32(sig.sig_expiration());
+    encoder.emit_u32(sig.sig_inception());
+    encoder.emit_u16(sig.key_tag());
     sig.signer_name()
         .emit_with_lowercase(encoder, is_canonical_names)?;
-    encoder.emit_vec(sig.sig())?;
+    encoder.emit_vec(sig.sig());
     Ok(())
 }
 
@@ -527,11 +527,11 @@ pub fn emit_pre_sig(
 ) -> ProtoResult<()> {
     type_covered.emit(encoder)?;
     algorithm.emit(encoder)?;
-    encoder.emit(num_labels)?;
-    encoder.emit_u32(original_ttl)?;
-    encoder.emit_u32(sig_expiration)?;
-    encoder.emit_u32(sig_inception)?;
-    encoder.emit_u16(key_tag)?;
+    encoder.emit(num_labels);
+    encoder.emit_u32(original_ttl);
+    encoder.emit_u32(sig_expiration);
+    encoder.emit_u32(sig_inception);
+    encoder.emit_u16(key_tag);
     signer_name.emit_as_canonical(encoder, true)?;
     Ok(())
 }

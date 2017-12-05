@@ -249,15 +249,13 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder, opt: &OPT) {
     for (edns_code, edns_option) in opt.options().iter() {
-        encoder.emit_u16(u16::from(*edns_code))?;
-        encoder.emit_u16(edns_option.len())?;
-
+        encoder.emit_u16(u16::from(*edns_code));
+        encoder.emit_u16(edns_option.len());
         let data: Vec<u8> = Vec::from(edns_option);
-        encoder.emit_vec(&data)?
+        encoder.emit_vec(&data);
     }
-    Ok(())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -460,7 +458,7 @@ pub fn test() {
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
+    emit(&mut encoder, &rdata);
     let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);

@@ -200,10 +200,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DS> {
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> ProtoResult<()> {
-    encoder.emit_u16(rdata.key_tag())?;
+    encoder.emit_u16(rdata.key_tag());
     rdata.algorithm().emit(encoder)?; // always 3 for now
-    encoder.emit(rdata.digest_type().into())?;
-    encoder.emit_vec(rdata.digest())?;
+    encoder.emit(rdata.digest_type().into());
+    encoder.emit_vec(rdata.digest());
 
     Ok(())
 }

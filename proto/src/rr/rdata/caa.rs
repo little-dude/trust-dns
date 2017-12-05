@@ -357,29 +357,28 @@ fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> Proto
     }
 }
 
-fn emit_value(encoder: &mut BinEncoder, value: &Value) -> ProtoResult<()> {
+fn emit_value(encoder: &mut BinEncoder, value: &Value) {
     match *value {
         Value::Issuer(ref name, ref key_values) => {
             // output the name
             if let Some(ref name) = *name {
                 let name = name.to_string();
-                encoder.emit_vec(name.as_bytes())?;
+                encoder.emit_vec(name.as_bytes());
             }
 
             // if there was no name, then we just output ';'
             if name.is_none() && key_values.is_empty() {
-                return encoder.emit(b';');
+                encoder.emit(b';');
+                return;
             }
 
             for key_value in key_values {
-                encoder.emit(b';')?;
-                encoder.emit(b' ')?;
-                encoder.emit_vec(key_value.key.as_bytes())?;
-                encoder.emit(b'=')?;
-                encoder.emit_vec(key_value.value.as_bytes())?;
+                encoder.emit(b';');
+                encoder.emit(b' ');
+                encoder.emit_vec(key_value.key.as_bytes());
+                encoder.emit(b'=');
+                encoder.emit_vec(key_value.value.as_bytes());
             }
-
-            Ok(())
         }
         Value::Url(ref url) => {
             let url = url.as_str();
@@ -797,15 +796,15 @@ pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
         flags |= 0b1000_0000;
     }
 
-    encoder.emit(flags)?;
+    encoder.emit(flags);
     // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
     let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
     let len = emit_tag(&mut tag_buf, &caa.tag)?;
 
     // now write to the encoder
-    encoder.emit(len)?;
-    encoder.emit_vec(&tag_buf[0..len as usize])?;
-    emit_value(encoder, &caa.value)?;
+    encoder.emit(len);
+    encoder.emit_vec(&tag_buf[0..len as usize]);
+    emit_value(encoder, &caa.value);
 
     Ok(())
 }

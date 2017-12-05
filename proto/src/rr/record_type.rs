@@ -193,7 +193,8 @@ impl BinSerializable<RecordType> for RecordType {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit_u16((*self).into())
+        encoder.emit_u16((*self).into());
+        Ok(())
     }
 }
 

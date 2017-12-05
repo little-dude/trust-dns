@@ -458,7 +458,7 @@ impl Name {
                 if let Some(loc) = encoder.get_label_pointer(labels) {
                     // write out the pointer marker
                     //  or'd with the location with shouldn't be larger than this 2^14 or 16k
-                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
+                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16));
 
                     // we found a pointer don't write more, break
                     return Ok(());
@@ -481,7 +481,7 @@ impl Name {
 
         // if we're getting here, then we didn't write out a pointer and are ending the name
         // the end of the list of names
-        encoder.emit(0)?;
+        encoder.emit(0);
 
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;

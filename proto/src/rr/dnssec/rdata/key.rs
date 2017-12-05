@@ -822,10 +822,10 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> ProtoResult<()> {
     flags |= u16::from(rdata.key_usage);
     flags |= u16::from(rdata.signatory);
 
-    encoder.emit_u16(flags)?;
-    encoder.emit(u8::from(rdata.protocol))?;
+    encoder.emit_u16(flags);
+    encoder.emit(u8::from(rdata.protocol));
     rdata.algorithm().emit(encoder)?;
-    encoder.emit_vec(rdata.public_key())?;
+    encoder.emit_vec(rdata.public_key());
 
     Ok(())
 }

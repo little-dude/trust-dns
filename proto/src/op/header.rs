@@ -441,10 +441,8 @@ impl BinSerializable<Header> for Header {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.reserve(12); // the 12 bytes for the following fields;
-
         // Id
-        encoder.emit_u16(self.id)?;
+        encoder.emit_u16(self.id);
 
         // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
         let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type {
@@ -456,7 +454,7 @@ impl BinSerializable<Header> for Header {
         q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
         q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
         q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
-        encoder.emit(q_opcd_a_t_r)?;
+        encoder.emit(q_opcd_a_t_r);
 
         // IsRecursionAvailable, Triple 0's, ResponseCode
         let mut r_z_ad_cd_rcod: u8 = if self.recursion_available {
@@ -475,12 +473,12 @@ impl BinSerializable<Header> for Header {
             0b0000_0000
         };
         r_z_ad_cd_rcod |= self.response_code;
-        encoder.emit(r_z_ad_cd_rcod)?;
+        encoder.emit(r_z_ad_cd_rcod);
 
-        encoder.emit_u16(self.query_count)?;
-        encoder.emit_u16(self.answer_count)?;
-        encoder.emit_u16(self.name_server_count)?;
-        encoder.emit_u16(self.additional_count)?;
+        encoder.emit_u16(self.query_count);
+        encoder.emit_u16(self.answer_count);
+        encoder.emit_u16(self.name_server_count);
+        encoder.emit_u16(self.additional_count);
 
         Ok(())
     }

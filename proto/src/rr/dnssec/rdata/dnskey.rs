@@ -297,10 +297,10 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     if rdata.revoke() {
         flags |= 0b0000_0000_1000_0000
     }
-    encoder.emit_u16(flags)?;
-    encoder.emit(3)?; // always 3 for now
+    encoder.emit_u16(flags);
+    encoder.emit(3); // always 3 for now
     rdata.algorithm().emit(encoder)?;
-    encoder.emit_vec(rdata.public_key())?;
+    encoder.emit_vec(rdata.public_key());
 
     Ok(())
 }

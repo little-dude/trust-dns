@@ -43,7 +43,8 @@ impl BinSerializable<u16> for u16 {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit_u16(*self)
+        encoder.emit_u16(*self);
+        Ok(())
     }
 }
 
@@ -53,7 +54,8 @@ impl BinSerializable<i32> for i32 {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit_i32(*self)
+        encoder.emit_i32(*self);
+        Ok(())
     }
 }
 
@@ -63,7 +65,8 @@ impl BinSerializable<u32> for u32 {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit_u32(*self)
+        encoder.emit_u32(*self);
+        Ok(())
     }
 }
 
@@ -73,6 +76,7 @@ impl BinSerializable<Vec<u8>> for Vec<u8> {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit_vec(self)
+        encoder.emit_vec(self);
+        Ok(())
     }
 }
