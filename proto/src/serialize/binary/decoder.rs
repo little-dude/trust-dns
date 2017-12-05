@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use error::{ProtoErrorKind, ProtoResult};
+use std::io::Cursor;
+use bytes::{BigEndian, Buf};
+use error::{ProtoErrorKind, ProtoResult, ProtoError};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -22,9 +24,10 @@ use error::{ProtoErrorKind, ProtoResult};
 ///  but given that this is such a small subset of all the serialization which that performs
 ///  this is a simpler implementation without the cruft, at least for serializing to/from the
 ///  binary DNS protocols.
-pub struct BinDecoder<'a> {
-    buffer: &'a [u8],
-    index: usize,
+pub struct BinDecoder<'a>(Cursor<&'a [u8]>);
+
+fn eof() -> ProtoError {
+    ProtoErrorKind::Message("unexpected end of input reached").into()
 }
 
 impl<'a> BinDecoder<'a> {
@@ -34,54 +37,44 @@ impl<'a> BinDecoder<'a> {
     ///
     /// * `buffer` - buffer from which all data will be read
     pub fn new(buffer: &'a [u8]) -> Self {
-        BinDecoder {
-            buffer: buffer,
-            index: 0,
-        }
+        BinDecoder(Cursor::new(buffer))
     }
 
     /// Pop one byte from the buffer
     pub fn pop(&mut self) -> ProtoResult<u8> {
-        if self.index < self.buffer.len() {
-            let byte = self.buffer[self.index];
-            self.index += 1;
-            Ok(byte)
-        } else {
-            Err(ProtoErrorKind::Message("unexpected end of input reached").into())
-        }
+        self.read_u8()
     }
 
     /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
-        self.buffer.len() - self.index
+        self.0.remaining()
     }
 
     /// Returns `true` if the buffer is empty
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        !self.0.has_remaining()
     }
 
     /// Peed one byte forward, without moving the current index forward
     pub fn peek(&self) -> Option<u8> {
-        if self.index < self.buffer.len() {
-            Some(self.buffer[self.index])
+        if !self.is_empty() {
+            Some(self.0.bytes()[0])
         } else {
             None
         }
     }
 
-    /// Returns the current index in the buffer
+    /// Return the current position in the buffer
     pub fn index(&self) -> usize {
-        self.index
+        self.0.position() as usize
     }
 
     /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
     ///  to the value passed in
     pub fn clone(&self, index_at: u16) -> BinDecoder {
-        BinDecoder {
-            buffer: self.buffer,
-            index: index_at as usize,
-        }
+        let mut cursor = self.0.clone();
+        cursor.set_position(index_at as u64);
+        BinDecoder(cursor)
     }
 
     /// Reads a String from the buffer
@@ -97,18 +90,10 @@ impl<'a> BinDecoder<'a> {
     ///
     /// A String version of the character data
     pub fn read_character_data(&mut self) -> ProtoResult<String> {
-        let length: u8 = self.pop()?;
-
-        // TODO once Drain stabalizes on Vec, this should be replaced...
-        let label_vec: Vec<u8> = self.read_vec(length as usize)?;
-
-        // translate bytes to string, then lowercase...
-        let data = String::from_utf8(label_vec)?;
-
-        Ok(data)
+        let length = self.read_u8()? as usize;
+        Ok(String::from_utf8(self.read_vec(length)?)?)
     }
 
-    // TODO: deprecate in favor of read_slice
     /// Reads a Vec out of the buffer
     ///
     /// # Arguments
@@ -119,39 +104,40 @@ impl<'a> BinDecoder<'a> {
     ///
     /// The Vec of the specified length, otherwise an error
     pub fn read_vec(&mut self, len: usize) -> ProtoResult<Vec<u8>> {
-        // TODO once Drain stabalizes on Vec, this should be replaced...
-        let mut vec: Vec<u8> = Vec::with_capacity(len);
-        for _ in 0..len as usize {
-            vec.push(self.pop()?)
+        if self.len() >= len {
+            let mut buf = vec![0; len];
+            self.0.copy_to_slice(&mut buf);
+            Ok(buf)
+        } else {
+            Err(eof())
         }
-
-        Ok(vec)
     }
 
-    /// Reads a slice out of the buffer, without allocating
-    ///
-    /// # Arguments
-    ///
-    /// * `len` - number of bytes to read from the buffer
-    ///
-    /// # Returns
-    ///
-    /// The slice of the specified length, otherwise an error
-    pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
-        let end = self.index + len;
-        if end > self.buffer.len() {
-            return Err(ProtoErrorKind::Message("buffer exhausted").into());
-        }
-
-
-        let slice: &'a [u8] = &self.buffer[self.index..end];
-        self.index += len;
-        Ok(slice)
-    }
+     /// Reads a slice out of the buffer, without allocating
+     ///
+     /// # Arguments
+     ///
+     /// * `len` - number of bytes to read from the buffer
+     ///
+     /// # Returns
+     ///
+     /// The slice of the specified length, otherwise an error
+     pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
+         if len > self.len() {
+             return Err(ProtoErrorKind::Message("buffer exhausted").into());
+         } else {
+             let pos = self.index();
+             Ok(self.0.get_ref()[pos..pos + len].as_ref())
+         }
+     }
 
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
     pub fn read_u8(&mut self) -> ProtoResult<u8> {
-        self.pop()
+        if self.is_empty() {
+            Err(eof())
+        } else {
+            Ok(self.0.get_u8())
+        }
     }
 
     /// Reads the next 2 bytes into u16
@@ -163,11 +149,11 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u16 from the buffer
     pub fn read_u16(&mut self) -> ProtoResult<u16> {
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok((u16::from(b1) << 8) + u16::from(b2))
+        if self.len() <= 1 {
+            Err(eof())
+        } else {
+            Ok(self.0.get_u16::<BigEndian>())
+        }
     }
 
     /// Reads the next four bytes into i32.
@@ -179,17 +165,11 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the i32 from the buffer
     pub fn read_i32(&mut self) -> ProtoResult<i32> {
-        // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-        let b3: u8 = self.pop()?;
-        let b4: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok(
-            (i32::from(b1) << 24) + (i32::from(b2) << 16) + (i32::from(b3) << 8)
-                + (i32::from(b4) as i32),
-        )
+        if self.len() <= 3 {
+            Err(eof())
+        } else {
+            Ok(self.0.get_i32::<BigEndian>())
+        }
     }
 
     /// Reads the next four bytes into u32.
@@ -201,14 +181,11 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u32 from the buffer
     pub fn read_u32(&mut self) -> ProtoResult<u32> {
-        // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-        let b3: u8 = self.pop()?;
-        let b4: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok((u32::from(b1) << 24) + (u32::from(b2) << 16) + (u32::from(b3) << 8) + u32::from(b4))
+        if self.len() <= 3 {
+            Err(eof())
+        } else {
+            Ok(self.0.get_u32::<BigEndian>())
+        }
     }
 }
 
