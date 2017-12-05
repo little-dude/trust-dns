@@ -729,112 +729,174 @@ impl BinSerializable<Message> for Message {
     }
 }
 
-#[test]
-fn test_emit_and_read_header() {
-    let mut message = Message::new();
-    message
-        .set_id(10)
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Update)
-        .set_authoritative(true)
-        .set_truncated(true)
-        .set_recursion_desired(true)
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::ServFail);
-
-    test_emit_and_read(message);
-}
-
-#[test]
-fn test_emit_and_read_query() {
-    let mut message = Message::new();
-    message
-        .set_id(10)
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Update)
-        .set_authoritative(true)
-        .set_truncated(true)
-        .set_recursion_desired(true)
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::ServFail)
-        .add_query(Query::new())
-        .update_counts(); // we're not testing the query parsing, just message
-
-    test_emit_and_read(message);
-}
-
-#[test]
-fn test_emit_and_read_records() {
-    let mut message = Message::new();
-    message
-        .set_id(10)
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Update)
-        .set_authoritative(true)
-        .set_truncated(true)
-        .set_recursion_desired(true)
-        .set_recursion_available(true)
-        .set_authentic_data(true)
-        .set_checking_disabled(true)
-        .set_response_code(ResponseCode::ServFail);
-
-    message.add_answer(Record::new());
-    message.add_name_server(Record::new());
-    message.add_additional(Record::new());
-    message.update_counts(); // needed for the comparison...
-
-    test_emit_and_read(message);
-}
-
 #[cfg(test)]
-fn test_emit_and_read(message: Message) {
-    let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
-    {
-        let mut encoder = BinEncoder::new(&mut byte_vec);
-        message.emit(&mut encoder).unwrap();
+mod test {
+    use super::*;
+    use test::Bencher;
+
+
+    #[test]
+    fn test_emit_and_read_header() {
+        let mut message = Message::new();
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_response_code(ResponseCode::ServFail);
+
+        test_emit_and_read(message);
     }
 
-    let mut decoder = BinDecoder::new(&byte_vec);
-    let got = Message::read(&mut decoder).unwrap();
+    #[test]
+    fn test_emit_and_read_query() {
+        let mut message = Message::new();
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_response_code(ResponseCode::ServFail)
+            .add_query(Query::new())
+            .update_counts(); // we're not testing the query parsing, just message
 
-    assert_eq!(got, message);
-}
-
-#[test]
-#[cfg_attr(rustfmt, rustfmt_skip)]
-fn test_legit_message() {
-    let buf: Vec<u8> = vec![
-  0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
-  0x00,0x01,0x00,0x01, // 1 query, 1 answer,
-  0x00,0x00,0x00,0x00, // 0 namesservers, 0 additional record
-
-  0x03,b'w',b'w',b'w', // query --- www.example.com
-  0x07,b'e',b'x',b'a', //
-  b'm',b'p',b'l',b'e', //
-  0x03,b'c',b'o',b'm', //
-  0x00,                // 0 = endname
-  0x00,0x01,0x00,0x01, // ReordType = A, Class = IN
-
-  0xC0,0x0C,           // name pointer to www.example.com
-  0x00,0x01,0x00,0x01, // RecordType = A, Class = IN
-  0x00,0x00,0x00,0x02, // TTL = 2 seconds
-  0x00,0x04,           // record length = 4 (ipv4 address)
-  0x5D,0xB8,0xD8,0x22, // address = 93.184.216.34
-  ];
-
-    let mut decoder = BinDecoder::new(&buf);
-    let message = Message::read(&mut decoder).unwrap();
-
-    assert_eq!(message.id(), 4096);
-
-    let mut buf: Vec<u8> = Vec::with_capacity(512);
-    {
-        let mut encoder = BinEncoder::new(&mut buf);
-        message.emit(&mut encoder).unwrap();
+        test_emit_and_read(message);
     }
 
-    let mut decoder = BinDecoder::new(&buf);
-    let message = Message::read(&mut decoder).unwrap();
+    #[test]
+    fn test_emit_and_read_records() {
+        let mut message = Message::new();
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_authentic_data(true)
+            .set_checking_disabled(true)
+            .set_response_code(ResponseCode::ServFail);
 
-    assert_eq!(message.id(), 4096);
+        message.add_answer(Record::new());
+        message.add_name_server(Record::new());
+        message.add_additional(Record::new());
+        message.update_counts(); // needed for the comparison...
+
+        test_emit_and_read(message);
+    }
+
+    fn test_emit_and_read(message: Message) {
+        let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut byte_vec);
+            message.emit(&mut encoder).unwrap();
+        }
+
+        let mut decoder = BinDecoder::new(&byte_vec);
+        let got = Message::read(&mut decoder).unwrap();
+
+        assert_eq!(got, message);
+    }
+
+
+    #[test]
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    fn test_legit_message() {
+        let buf: Vec<u8> = vec![
+            0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
+            0x00,0x01,0x00,0x01, // 1 query, 1 answer,
+            0x00,0x00,0x00,0x00, // 0 namesservers, 0 additional record
+
+            0x03,b'w',b'w',b'w', // query --- www.example.com
+            0x07,b'e',b'x',b'a', //
+            b'm',b'p',b'l',b'e', //
+            0x03,b'c',b'o',b'm', //
+            0x00,                // 0 = endname
+            0x00,0x01,0x00,0x01, // ReordType = A, Class = IN
+
+            0xC0,0x0C,           // name pointer to www.example.com
+            0x00,0x01,0x00,0x01, // RecordType = A, Class = IN
+            0x00,0x00,0x00,0x02, // TTL = 2 seconds
+            0x00,0x04,           // record length = 4 (ipv4 address)
+            0x5D,0xB8,0xD8,0x22, // address = 93.184.216.34
+        ];
+
+        let mut decoder = BinDecoder::new(&buf);
+        let message = Message::read(&mut decoder).unwrap();
+
+        assert_eq!(message.id(), 4096);
+
+        let mut buf: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut buf);
+            message.emit(&mut encoder).unwrap();
+        }
+
+        let mut decoder = BinDecoder::new(&buf);
+        let message = Message::read(&mut decoder).unwrap();
+
+        assert_eq!(message.id(), 4096);
+    }
+
+    #[bench]
+    fn bench_emit(b: &mut Bencher) {
+        let mut message = Message::new();
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_authentic_data(true)
+            .set_checking_disabled(true)
+            .set_response_code(ResponseCode::ServFail);
+        message.add_answer(Record::new());
+        message.add_name_server(Record::new());
+        message.add_additional(Record::new());
+        message.update_counts();
+        b.iter(|| {
+            let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+            let mut encoder = BinEncoder::new(&mut byte_vec);
+            message.emit(&mut encoder)
+        })
+    }
+
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        let mut message = Message::new();
+        message
+            .set_id(10)
+            .set_message_type(MessageType::Response)
+            .set_op_code(OpCode::Update)
+            .set_authoritative(true)
+            .set_truncated(true)
+            .set_recursion_desired(true)
+            .set_recursion_available(true)
+            .set_authentic_data(true)
+            .set_checking_disabled(true)
+            .set_response_code(ResponseCode::ServFail);
+
+        message.add_answer(Record::new());
+        message.add_name_server(Record::new());
+        message.add_additional(Record::new());
+        message.update_counts(); // needed for the comparison...
+        let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut byte_vec);
+            message.emit(&mut encoder).unwrap();
+        }
+        b.iter(|| {
+            let mut decoder = BinDecoder::new(&mut byte_vec);
+            Message::read(&mut decoder)
+        })
+    }
 }

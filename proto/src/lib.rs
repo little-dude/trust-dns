@@ -8,6 +8,7 @@
 
 #![warn(missing_docs)]
 #![recursion_limit = "2048"]
+#![feature(test)]
 
 //! TRust-DNS Protocol library
 
@@ -31,6 +32,9 @@ extern crate tokio_io;
 extern crate untrusted;
 extern crate url;
 extern crate bytes;
+
+#[cfg(test)]
+extern crate test;
 
 use std::marker::PhantomData;
 use std::net::SocketAddr;

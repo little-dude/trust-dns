@@ -484,86 +484,117 @@ impl BinSerializable<Header> for Header {
     }
 }
 
-#[test]
-fn test_parse() {
-    let byte_vec = vec![
-        0x01,
-        0x10,
-        0xAA,
-        0x83, // 0b1010 1010 1000 0011
-        0x88,
-        0x77,
-        0x66,
-        0x55,
-        0x44,
-        0x33,
-        0x22,
-        0x11,
-    ];
+#[cfg(test)]
+mod test {
+    use super::*;
+    use test::Bencher;
 
-    let mut decoder = BinDecoder::new(&byte_vec);
+    #[test]
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    fn test_parse() {
+        let byte_vec = vec![
+            0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+            0x88, 0x77, 0x66, 0x55,
+            0x44, 0x33, 0x22, 0x11,
+        ];
 
-    let expect = Header {
-        id: 0x0110,
-        message_type: MessageType::Response,
-        op_code: OpCode::Update,
-        authoritative: false,
-        truncation: true,
-        recursion_desired: false,
-        recursion_available: true,
-        authentic_data: false,
-        checking_disabled: false,
-        response_code: ResponseCode::NXDomain.low(),
-        query_count: 0x8877,
-        answer_count: 0x6655,
-        name_server_count: 0x4433,
-        additional_count: 0x2211,
-    };
+        let mut decoder = BinDecoder::new(&byte_vec);
 
-    let got = Header::read(&mut decoder).unwrap();
+        let expect = Header {
+            id: 0x0110,
+            message_type: MessageType::Response,
+            op_code: OpCode::Update,
+            authoritative: false,
+            truncation: true,
+            recursion_desired: false,
+            recursion_available: true,
+            authentic_data: false,
+            checking_disabled: false,
+            response_code: ResponseCode::NXDomain.low(),
+            query_count: 0x8877,
+            answer_count: 0x6655,
+            name_server_count: 0x4433,
+            additional_count: 0x2211,
+        };
 
-    assert_eq!(got, expect);
-}
+        let got = Header::read(&mut decoder).unwrap();
 
-#[test]
-fn test_write() {
-    let header = Header {
-        id: 0x0110,
-        message_type: MessageType::Response,
-        op_code: OpCode::Update,
-        authoritative: false,
-        truncation: true,
-        recursion_desired: false,
-        recursion_available: true,
-        authentic_data: false,
-        checking_disabled: false,
-        response_code: ResponseCode::NXDomain.low(),
-        query_count: 0x8877,
-        answer_count: 0x6655,
-        name_server_count: 0x4433,
-        additional_count: 0x2211,
-    };
-
-    let expect: Vec<u8> = vec![
-        0x01,
-        0x10,
-        0xAA,
-        0x83, // 0b1010 1010 1000 0011
-        0x88,
-        0x77,
-        0x66,
-        0x55,
-        0x44,
-        0x33,
-        0x22,
-        0x11,
-    ];
-
-    let mut bytes = Vec::with_capacity(512);
-    {
-        let mut encoder = BinEncoder::new(&mut bytes);
-        header.emit(&mut encoder).unwrap();
+        assert_eq!(got, expect);
     }
 
-    assert_eq!(bytes, expect);
+
+    #[test]
+    fn test_write() {
+        let header = Header {
+            id: 0x0110,
+            message_type: MessageType::Response,
+            op_code: OpCode::Update,
+            authoritative: false,
+            truncation: true,
+            recursion_desired: false,
+            recursion_available: true,
+            authentic_data: false,
+            checking_disabled: false,
+            response_code: ResponseCode::NXDomain.low(),
+            query_count: 0x8877,
+            answer_count: 0x6655,
+            name_server_count: 0x4433,
+            additional_count: 0x2211,
+        };
+
+        let expect: Vec<u8> = vec![
+            0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+            0x88, 0x77, 0x66, 0x55,
+            0x44, 0x33, 0x22, 0x11,
+        ];
+
+        let mut bytes = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut bytes);
+            header.emit(&mut encoder).unwrap();
+        }
+
+        assert_eq!(bytes, expect);
+    }
+
+    #[bench]
+    fn bench_emit(b: &mut Bencher) {
+        let header = Header {
+            id: 0x0110,
+            message_type: MessageType::Response,
+            op_code: OpCode::Update,
+            authoritative: false,
+            truncation: true,
+            recursion_desired: false,
+            recursion_available: true,
+            authentic_data: false,
+            checking_disabled: false,
+            response_code: ResponseCode::NXDomain.low(),
+            query_count: 0x8877,
+            answer_count: 0x6655,
+            name_server_count: 0x4433,
+            additional_count: 0x2211,
+        };
+
+        b.iter(|| {
+            // we need to create the vector here, otherwise its length is already big enough and the
+            // encoder does not need to resize it
+            let mut bytes = Vec::with_capacity(512);
+            let mut encoder = BinEncoder::new(&mut bytes);
+            header.emit(&mut encoder)
+        })
+    }
+
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        let mut byte_vec = vec![
+            0x01, 0x10, 0xAA, 0x83,
+            0x88, 0x77, 0x66, 0x55,
+            0x44, 0x33, 0x22, 0x11
+        ];
+        b.iter(|| {
+            let mut decoder = BinDecoder::new(&mut byte_vec);
+            Header::read(&mut decoder)
+        })
+    }
 }
